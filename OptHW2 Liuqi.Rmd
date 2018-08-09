@@ -1,0 +1,246 @@
+---
+title: "Opt HW2 Finalize"
+author: "Liuqi Wang"
+date: "October 24, 2017"
+output: pdf_document
+---
+
+1. Setup and Deliverables
+install packages "optrees, igraph,and qgraph"
+```{r}
+# I comment these install commands out for knitting the document.
+#install.packages('optrees')
+#install.packages('igraph')
+#install.packages('qgraph')
+```
+call the libraries
+```{r}
+library('optrees')
+library('igraph')
+library('qgraph')
+```
+
+2. Matrix Representation
+```{r}
+n <- 1000
+d <- runif(n*n)
+d[d < 0.8] <- NA
+d <- matrix(d, nrow=n, ncol=n)
+diag(d) <- NA
+d[upper.tri(d)] = t(d)[upper.tri(d)]
+```
+Build function AdjMatrix2List
+```{r}
+AdjMatrix2List <- function(d){
+  ds <- matrix(nrow = nrow(d)*nrow(d), ncol = 3, dimnames = list(NULL, c("head", "tail", "weight")))
+  k=1
+  for (i in 1:n){
+    for (j in 1:n){
+     # if (i<j){
+        ds[k,1] <- i
+        ds[k,2] <- j
+        ds[k,3] <- d[i,j]
+        k=k+1
+   #   }
+    }
+  }
+ds <- na.omit(ds)
+}
+```
+Test the function AdjMatrix2List
+```{r}
+ds <- AdjMatrix2List(d)
+str(d)
+str(ds)
+head(ds)
+```
+
+3. Euclidean Minimum Spanning Tree (E-MST)
+```{r}
+n <- 50
+x <- round(runif(n)*1000)
+y <- round(runif(n)*1000)
+{plot(x,y,pch=16)}
+```
+
+(1)create an adjacency matrix d1
+```{r}
+d1 <- matrix(rep(0), nrow=n, ncol=n)
+for (i in 1:n){
+  for (j in 1:n){
+    d1[i,j] <- sqrt((y[j]-y[i])^2 + (x[j]-x[i])^2)
+  }
+}
+```
+
+(2)convert adjacency matrix to adjacency list
+```{r}
+ds <- AdjMatrix2List(d1)
+```
+
+(3) Calclate minimum spanning tree using Prim 
+```{r}
+ds.mst <- msTreePrim(1:n, ds)
+str(ds.mst)
+```
+
+(4) Visualize MPT
+```{r}
+x1 <- ds.mst$tree.arcs[,1]
+y1 <- ds.mst$tree.arcs[,2]
+#build function plot.mst
+plot.mst <- function(arcList){
+  plot(x,y,pch=16)
+    for (i in 1:nrow(ds.mst$tree.arcs)){
+      segments(x[x1[i]], y[x1[i]], x[y1[i]], y[y1[i]], col = par("fg"), lty = par("lty"))
+  }
+}
+```
+Test and admire handiwork
+```{r}
+#visualize MPT
+{plot.mst(ds.mst$tree.arcs)}
+```
+
+4. Hostile Agents
+(1) Specify this problem as a graph optimization problem.
+This is a minimum spanning tree problem. Imagine an undirected graph G(V,E). Agents represent the nodes, connections between Agents for arranging a rendezous represent the edges, and probabilities of message passed between agents falling into hostile hands represent the weights of the edges. 
+
+The problem asks for maximizing the total probability that no message is intercepted. This also means to minimize probability of message failing into hostil hands, which is Pij. In this case, the problem is a minimum spanning tree problem to minimize weights (Pij). 
+
+(2) How do you structure your inputs to this problem?
+Assign each Agent a Character from A to Z.
+Connect all Agents with each other with edges. 
+Assign Pij as weight for each edge. The Pij will be inputted as log(Pij). 
+Because in this problem, the edge weight is the probability of falling. When calculating probabilities of messages falling passing along different agents, the probability from Agent A to B to C, for example, is calculated as Pab x Pbc. In spanning tree problem, the weight is calculated using sum. In order to convert the sum to multiplication, we could input the weight edge as log(Pij). This way, take the example just mentioned again, log(A+B) = log(A) x log(B)
+
+(3) Which algorithm do you use to solve it?
+For this minimum spanning tree problem, I could choose to use either Prim or Kruskal Algorithm. 
+(Personally prefer Kruskal Algorithm.)
+
+(4) What is the computational efficiency of your chosen solution?
+O(ElogV), where E is the number of edges. It takes O(ElogE) time to insert all edges in a particular ordered tree. 
+
+Undirected Graph G(V,E)
+How Kruskal's algorithm works: 
+  1) sort the list of edges by weight in nondecreasing order --> runtime = O(E log E)
+  2) pick smallest edge and check if will cause cycle to the spanning tree formed so far, included edge if no cycle --> runtime = O(E log V)
+
+  Total runtime = O(E log E) + O(E log V).
+  Since E <= V^2. Set this as the upper bound.
+    O(E log E) + O(E log V)
+    $\approx$ E(logE + logV)
+    $\approx$ E(log(E*V))
+    $\approx$ E(log(V^3))
+    $\approx$ 3ElogV
+    $\approx$ ElogV
+  Total runtime = O(E log V)
+  To be more precise, Total Runtime = O(|E| log |V|)
+  (note: |E| means the number of edges, |V| means the number of vertices)
+
+5. Project Scheduling
+(1) 1693 AnalyticsTM, create 
+```{r}
+s.labels <- c('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j')
+s.nodes <- c('90', '15', '5', '20', '21', '25', '14', '28', '30', '45')
+s.labels <- toupper(s.labels)#change to uppercase
+toupper(s.labels)
+s.nodes <- as.numeric(s.nodes)
+
+p <- matrix(NA, ncol=length(s.labels), nrow=length(s.labels))
+p[1,9] <- 90
+p[1,6] <- 90
+p[1,2] <- 90
+p[2,3] <- 15
+p[3,7] <- 5
+p[7,4] <- 14
+p[4,5] <- 20
+p[4,10] <- 20
+p[4,8] <- 20
+p[9,10] <- 30
+p[6,7] <- 25
+
+n <- length(s.labels) ## covert to adjacency list, both works 
+pss <- AdjMatrix2List(p) # both works
+#ps <- Cmat2ArcList(1:n, p, directed=TRUE) # covert to adjacency list, both works 
+```
+(2) Enter, the Mgmt
+
+(3) A linear programming problem 
+#use optrees package?
+#plot a graph from s.labels & s.nodes?
+
+(4) Earliest Start Times(ES)
+Find the critical path, using shortest path in package Optrees. 
+```{r}
+pss[,3] <- pss[,3]*(-1)
+critical.path <- getShortestPathTree(1:10, pss, algorithm="Bellman-Ford")
+critical.path <- critical.path$distances*(-1)
+ES <- critical.path
+print(ES)
+```
+
+(5) Earliest Overall Project Completion Time, from date Nov1, 2017.
+```{r}
+lastnode <- c(s.nodes[5], s.nodes[8], s.nodes[10])
+lastnode <- max(lastnode)
+duration <- max(ES) + lastnode
+StartDate <- as.Date("2017-11-01")
+EndDate <- StartDate + duration
+print(EndDate)
+```
+
+(6) Earliest Finish Time (EF)
+```{r}
+EF <- ES + s.nodes
+print(EF)
+```
+
+(7) Latest Finish Times (LF)
+```{r}
+#new matrix trace back to source
+pp <- matrix(NA, ncol=length(s.labels)+1, nrow=length(s.labels)+1)
+pp[11,10] <- 0
+pp[11,8] <- 0
+pp[11,5] <- 0
+pp[8,4] <- 28
+pp[10,4] <- 45
+pp[10,9] <- 45
+pp[5,4] <- 21
+pp[4,7] <- 20
+pp[7,3] <- 14
+pp[3,2] <- 5
+pp[2,1] <- 15
+pp[9,1] <- 30
+pp[7,6] <- 14
+pp[6,1] <- 25
+
+n <- length(s.labels)+1
+pps <- Cmat2ArcList(1:n, pp, directed=TRUE)
+
+pps[,3] <- pps[,3]*(-1)
+critical.path <- getShortestPathTree(1:11, directed=TRUE, source.node=11, pps, algorithm="Bellman-Ford")
+critical.path <- critical.path$distances
+LF <- critical.path[1:10] + duration
+print(LF)
+```
+
+(8) Latest Start Times
+```{r}
+LS = LF - s.nodes
+print(LS)
+```
+
+(9) Slack
+```{r}
+slack <- LF - EF
+print(slack)
+```
+    1. Scheduling Flexibility: B, C, E, H, I
+    2. on Critical Path: A, D, F, G, J
+
+
+
+
+
+
